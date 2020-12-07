@@ -1,0 +1,60 @@
+#cloud-config
+users:
+  - name: holu
+    groups: users, admin
+    sudo: ALL=(ALL) NOPASSWD:ALL
+    shell: /bin/bash
+    ssh_authorized_keys:
+      - ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAACAQC4bRV3xH/ryWBGtohW9Eqf1uH6aIGHB2RBXEiAId+hOMzUJ6WAShgymtZw7P89ej3zYI5LdE9eXywRuUGJiqanpW0HnNQsMGMulUPdPGm7CJ5hYjNSmVVQLs7UkXj2iJWQxSxOyYOzlupvDlfsMUgMKEw8tr/ei+Twj2wuQJXsh2TPs1+J6dzhxSXGDVRWrQPSduni7+1nTkoUY2cBTciUc4/QWjP1jCN085Xjtf2xaUKmhIhoSfKQGdrurCBl/Jl5LmS6BOEEIB57nKmBzR46g8cqGtpiPzuSl7FNyrBANtvCbZauHtG9kORwqE1SGxGbsznXs7t7nrV/yG5/F8UYVJYllRYkgVvkKRR8rwkxjjPTUzqT3/9lnUelqN0tSh9hVW+/yw+1G9iSs/UKUMsqozLj1H0Q90XZe1wfzyzP11+o08MKZivZrzCcrsG4T/gQC9Na1sT/EP8NrU1gPv3LuE16y3z1CBs4qWlXxSMwgF9mmg4A8ur6BnmJjt8QMeGApC1C77WmuRhbA0JIX9b5oMbFNAQO6AkDLHVDlpAPxC4Fvi5EtK3F6lt+oBmIiXU1kxrYw2Uv2/bxZqJRkcuBo8HK7TXYryWmSkJFl+ZXxGq0LZzkmBmYmT1FJUp3H4pBdfcE1yXjsicwSrNR0HuPBpscjU1y5oxtniPVO9LXgQ== ningu@Master
+
+packages:
+  - curl
+  - apt-transport-https
+  - ca-certificates
+  - software-properties-common
+  - python
+  - iptables-persistent
+  - gnupg-agent
+#  - cri-o-1.19
+package_update: true
+package_upgrade: true
+
+runcmd:
+  - curl -LO "https://storage.googleapis.com/kubernetes-release/release/$(curl -s https://storage.googleapis.com/kubernetes-release/release/stable.txt)/bin/linux/amd64/kubectl"
+  - chmod +x ./kubectl
+  - mv ./kubectl /usr/local/bin/kubectl
+  - swapoff -a
+  - export VERSION=1.19
+  - sudo dnf module enable cri-o:$VERSION
+  - sudo dnf install cri-o
+#  - sudo su
+#  - export OS=CentOS_8
+#  - curl -L -o /etc/yum.repos.d/devel:kubic:libcontainers:stable.repo https://download.opensuse.org/repositories/devel:/kubic:/libcontainers:/stable/$OS/devel:kubic:libcontainers:stable.repo
+#  - curl -L -o /etc/yum.repos.d/devel:kubic:libcontainers:stable:cri-o:$VERSION.repo https://download.opensuse.org/repositories/devel:kubic:libcontainers:stable:cri-o:$VERSION/$OS/devel:kubic:libcontainers:stable:cri-o:$VERSION.repo
+#  - yum install cri-o -y
+#  - systemctl enable --now cri-o
+#  - CRIO_VERSION=1.19
+#  - . /etc/os-release
+#  - sudo sh -c "echo 'deb http://download.opensuse.org/repositories/devel:/kubic:/libcontainers:/stable/x${NAME}_${VERSION_ID}/ /' >/etc/apt/sources.list.d/devel:kubic:libcontainers:stable.list"
+#  - wget -nv https://download.opensuse.org/repositories/devel:kubic:libcontainers:stable/x${NAME}_${VERSION_ID}/Release.key -O- | sudo apt-key add -
+#  - apt update
+#  - apt install cri-o-${CRIO_VERSION} -y
+#  - systemctl enable crio.service
+#  - systemctl start crio.service
+#  - curl -s https://packages.cloud.google.com/apt/doc/apt-key.gpg | sudo apt-key add -
+#  - echo "deb https://apt.kubernetes.io/ kubernetes-xenial main" | sudo tee /etc/apt/sources.list.d/kubernetes.list
+#  - apt update
+#  - apt -y install vim git curl wget kubelet kubeadm kubectl
+#  - apt-mark hold kubelet kubeadm kubectl
+#  - sudo sed -i '/ swap / s/^\(.*\)$/#\1/g' /etc/fstab
+#  - sudo swapoff -a
+#  - sudo modprobe overlay
+#  - sudo modprobe br_netfilter
+#  - sudo tee /etc/sysctl.d/kubernetes.conf<<EOF
+#    net.bridge.bridge-nf-call-ip6tables = 1
+#    net.bridge.bridge-nf-call-iptables = 1
+#    net.ipv4.ip_forward = 1
+#    EOF
+#  - sudo sysctl --system
+  - touch /opt/ready.txt
+  - reboot

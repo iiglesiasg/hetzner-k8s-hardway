@@ -1,0 +1,9 @@
+---
+- name: Bootstrap etcd in master nodes
+  hosts: master
+  gather_facts: false
+  become: false
+  vars_files:
+    - "env/values.yaml"
+  roles:
+    - { role: boot-etcd, tags: boot-etcd }

@@ -1,0 +1,202 @@
+
+---
+- name: Gather instance facts
+  setup:
+  delegate_to: "{{ item }}"
+  delegate_facts: True
+  remote_user: root
+  loop: "{{ groups['allserver'] }}"
+
+
+- name: Create directory for CA and certificate files
+  file:
+    path: "{{ playbook_dir }}/pki/certs"
+    state: directory
+
+## Certificate Authority (https://github.com/kelseyhightower/kubernetes-the-hard-way/blob/master/docs/04-certificate-authority.md#certificate-authority)
+- name: Template cfssl config file
+  template:
+    src: "{{ playbook_dir }}/pki/jinjas/ca-config.json.j2"
+    dest: "{{ playbook_dir }}/pki/certs/ca-config.json"
+- name: Template cfssl CA request file (CSR)
+  template:
+    src: "{{ playbook_dir }}/pki/jinjas/ca-csr.json.j2"
+    dest: "{{ playbook_dir }}/pki/certs/ca-csr.json"
+
+- name: Generate Kubernetes API server certificate authority (CA) and private key
+  shell: >
+    set -o errexit; \
+    set -o pipefail; \
+    cfssl gencert \
+      -initca ca-csr.json \
+    | cfssljson -bare ca
+  args:
+    executable: "/bin/bash"
+    chdir: "{{ playbook_dir }}/pki/certs/"
+
+## The Admin Client Certificate
+- name: Template cfssl Admin request file (CSR)
+  template:
+    src: "{{ playbook_dir }}/pki/jinjas/admin-csr.json.j2"
+    dest: "{{ playbook_dir }}/pki/certs/admin-csr.json"
+- name: Generate Kubernetes API server certificate and private key
+  shell: >
+    set -o errexit; \
+    set -o pipefail; \
+    cfssl gencert \
+      -ca=ca.pem \
+      -ca-key=ca-key.pem \
+      -config=ca-config.json \
+      -profile=kubernetes \
+    admin-csr.json | cfssljson -bare admin
+  args:
+    executable: "/bin/bash"
+    chdir: "{{ playbook_dir }}/pki/certs/"
+
+## The Kubelet Client Certificates
+- name: Template cfssl Kubelet request file (CSR)
+  template:
+    src: "{{ playbook_dir }}/pki/jinjas/worker-csr.json.j2"
+    dest: "{{ playbook_dir }}/pki/certs/{{ hostvars[item]['ansible_hostname'] }}-csr.json"
+  with_inventory_hostnames:
+    - worker
+  vars:
+    - workerHost: "{{ item }}"
+
+- name: Generate Kubelet certificate and private key
+  shell: >
+    set -o errexit; \
+    set -o pipefail; \
+    cfssl gencert \
+      -ca=ca.pem \
+      -ca-key=ca-key.pem \
+      -config=ca-config.json \
+      -hostname={{ hostvars[item]['ansible_hostname'] }},{{ hostvars[item]['ansible_default_ipv4']['address'] }},{{ hostvars[item]['ansible_ens10']['ipv4']['address'] }}  \
+      -profile=kubernetes \
+    {{ hostvars[item]['ansible_hostname'] }}-csr.json | cfssljson -bare kubelet-{{ hostvars[item]['ansible_hostname'] }}
+  with_inventory_hostnames:
+    - worker
+  args:
+    executable: "/bin/bash"
+    chdir: "{{ playbook_dir }}/pki/certs/"
+    creates: "{{ playbook_dir }}/pki/certs/kubelet-{{ hostvars[item]['ansible_hostname'] }}-key.pem"
+
+## The Controller Manager Client Certificates
+- name: Template cfssl control manager request file (CSR)
+  template:
+    src: "{{ playbook_dir }}/pki/jinjas/kube-controller-manager-csr.json.j2"
+    dest: "{{ playbook_dir }}/pki/certs/kube-controller-manager-csr.json"
+- name: Generate Controller Manager certificate and private key
+  shell: >
+    set -o errexit; \
+    set -o pipefail; \
+    cfssl gencert \
+      -ca=ca.pem \
+      -ca-key=ca-key.pem \
+      -config=ca-config.json \
+      -profile=kubernetes \
+    kube-controller-manager-csr.json | cfssljson -bare kube-controller-manager
+  args:
+    executable: "/bin/bash"
+    chdir: "{{ playbook_dir }}/pki/certs/"
+
+## The kube-proxy Client Certificates
+- name: Template cfssl control manager request file (CSR)
+  template:
+    src: "{{ playbook_dir }}/pki/jinjas/kube-proxy-csr.json.j2"
+    dest: "{{ playbook_dir }}/pki/certs/kube-proxy-csr.json"
+- name: Generate Controller Manager certificate and private key
+  shell: >
+    set -o errexit; \
+    set -o pipefail; \
+    cfssl gencert \
+      -ca=ca.pem \
+      -ca-key=ca-key.pem \
+      -config=ca-config.json \
+      -profile=kubernetes \
+    kube-proxy-csr.json | cfssljson -bare kube-proxy
+  args:
+    executable: "/bin/bash"
+    chdir: "{{ playbook_dir }}/pki/certs/"
+
+## The kube-scheduler Client Certificates
+- name: Template cfssl control manager request file (CSR)
+  template:
+    src: "{{ playbook_dir }}/pki/jinjas/kube-scheduler-csr.json.j2"
+    dest: "{{ playbook_dir }}/pki/certs/kube-scheduler-csr.json"
+- name: Generate Controller Manager certificate and private key
+  shell: >
+    set -o errexit; \
+    set -o pipefail; \
+    cfssl gencert \
+      -ca=ca.pem \
+      -ca-key=ca-key.pem \
+      -config=ca-config.json \
+      -profile=kubernetes \
+    kube-scheduler-csr.json | cfssljson -bare kube-scheduler
+  args:
+    executable: "/bin/bash"
+    chdir: "{{ playbook_dir }}/pki/certs/"
+
+## The Kubernetes API Server Certificate
+- name: Generate list of IP addresses and hostnames needed for Kubernetes API server certificate
+  set_fact:
+    k8sApiHosts: >-
+      {% set comma = joiner(",") %}{% for item in groups['master'] -%}
+        {{ comma() }}{{ hostvars[item].ansible_default_ipv4.address }}{{ comma() }}{{ hostvars[item]['ansible_ens10'].ipv4.address }}{{ comma() }}{{ item }}{{ comma() }}{{ hostvars[item]["ansible_hostname"] }}
+      {%- endfor %}{% for item in k8s_apiserver_cert_hosts -%}
+        {{ comma() }}{{ item }}
+      {%- endfor %}
+  with_inventory_hostnames:
+    - master
+
+- name: Output of hostnames/IPs used for Kubernetes API server certificate
+  debug: var=k8sApiHosts
+- name: Template cfssl control manager request file (CSR)
+  template:
+    src: "{{ playbook_dir }}/pki/jinjas/kubernetes-csr.json.j2"
+    dest: "{{ playbook_dir }}/pki/certs/kubernetes-csr.json"
+
+- name: Generate TLS certificate for Kubernetes API server
+  shell: >
+    set -o errexit; \
+    set -o pipefail; \
+    cfssl gencert \
+      -ca=ca.pem \
+      -ca-key=ca-key.pem \
+      -config=ca-config.json \
+      -hostname={{ k8sApiHosts }} \
+      -profile=kubernetes \
+      kubernetes-csr.json \
+    | cfssljson -bare kubernetes
+  args:
+    executable: "/bin/bash"
+    chdir: "{{ playbook_dir }}/pki/certs/"
+    creates: "{{ playbook_dir }}/pki/certs/kubernetes-key.pem"
+
+## The Service Account Key Pair
+- name: Template cfssl sa request file (CSR)
+  template:
+    src: "{{ playbook_dir }}/pki/jinjas/service-account-csr.json.j2"
+    dest: "{{ playbook_dir }}/pki/certs/service-account-csr.json"
+- name: Generate Service Account certificate and private key
+  shell: >
+    set -o errexit; \
+    set -o pipefail; \
+    cfssl gencert \
+      -ca=ca.pem \
+      -ca-key=ca-key.pem \
+      -config=ca-config.json \
+      -profile=kubernetes \
+    service-account-csr.json | cfssljson -bare service-account
+  args:
+    executable: "/bin/bash"
+    chdir: "{{ playbook_dir }}/pki/certs/"
+
+## Distribute the Client and Server Certificates
+#- name: Copy CA files
+#  copy:
+#    src: "{{ playbook_dir }}/pki/certs/ca.pem"
+#    dest: "~/"
+#  with_inventory_hostnames:
+#    - allserver

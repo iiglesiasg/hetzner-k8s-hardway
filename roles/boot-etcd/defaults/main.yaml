@@ -1,0 +1,1 @@
+initial_cluster: master0=https://10.0.0.10:2380 #,master1=https://10.0.0.11:2380 #,controller-2=https://10.240.0.12:2380

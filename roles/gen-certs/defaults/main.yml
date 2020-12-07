@@ -1,0 +1,16 @@
+# For "k8s_apiserver_cert_hosts" the same is basically true as with
+# `etcd_cert_hosts` but we also include the Kubernetes service IP `10.32.0.1`
+# (which you will get btw if you execute `nslookup kubernetes` later in one
+# of the pods). We also include "127.0.0.1" and "localhost" and we include
+# some Kubernetes hostname's that are available by default if "CoreDNS"
+# is deployed.
+k8s_apiserver_cert_hosts:
+  - localhost
+  - 127.0.0.1
+  - 10.32.0.1
+  - kubernetes
+  - kubernetes.default
+  - kubernetes.default.svc
+  - kubernetes.default.svc.cluster
+  - kubernetes.default.svc.cluster.local
+  - 10.0.0.2

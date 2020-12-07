@@ -1,0 +1,39 @@
+---
+- name: Generate random
+  shell: "head -c 32 /dev/urandom | base64"
+  register: random_sequence
+
+- name: Create Cloud Config for Terraform main nodes
+  template:
+    src: cloud-init-main.yaml.j2
+    dest: "{{ playbook_dir }}/roles/tf-infrastructure/terraform/cloud_config/cloud_init_main.yaml"
+
+- name: Create Cloud Config for Terraform worker nodes
+  template:
+    src: cloud-init-worker.yaml.j2
+    dest: "{{ playbook_dir }}/roles/tf-infrastructure/terraform/cloud_config/cloud_init_worker.yaml"
+
+
+- name: Create Infrastructure with Terraform
+  terraform:
+    project_path: "{{ playbook_dir }}/roles/tf-infrastructure/terraform"
+    force_init: true
+    state: present
+    variables:
+      hcloud_token: "{{ hetzner_token }}"
+#      datacenter: "{{ datacenter }}"
+#      master_servertype: "{{ master_servertype }}"
+#      worker_servertype: "{{ worker_servertype }}"
+#      worker_count: "{{ worker_count }}"
+#      floatip_count: "{{ floatip_count }}"
+  register: tf
+
+- name: Create Infrastructure File
+  template:
+    src: outputs.yaml.j2
+    dest: "{{ playbook_dir }}/env/inventory"
+
+#- name: Set Output Info to env/ips.yaml
+#  template:
+#    src: ips.yaml.j2
+#    dest: "{{ playbook_dir }}/env/ips.yaml"

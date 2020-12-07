@@ -1,0 +1,30 @@
+[Unit]
+Description=etcd
+Documentation=https://github.com/coreos
+
+[Service]
+Type=notify
+ExecStart=/opt/etcd/bin/etcd \
+  --name {{ ansible_hostname }} \
+  --cert-file=/var/lib/etcd/{{ ansible_hostname }}.etcd/kubernetes.pem \
+  --key-file=/var/lib/etcd/{{ ansible_hostname }}.etcd/kubernetes-key.pem \
+  --peer-cert-file=/var/lib/etcd/{{ ansible_hostname }}.etcd/kubernetes.pem \
+  --peer-key-file=/var/lib/etcd/{{ ansible_hostname }}.etcd/kubernetes-key.pem \
+  --trusted-ca-file=/var/lib/etcd/{{ ansible_hostname }}.etcd/ca.pem \
+  --peer-trusted-ca-file=/var/lib/etcd/{{ ansible_hostname }}.etcd/ca.pem \
+  --peer-client-cert-auth \
+  --client-cert-auth \
+  --initial-advertise-peer-urls https://{{ hostvars[item]['ansible_ens10']['ipv4']['address'] }}:2380 \
+  --listen-peer-urls https://{{ hostvars[item]['ansible_ens10']['ipv4']['address'] }}:2380 \
+  --listen-client-urls https://{{ hostvars[item]['ansible_ens10']['ipv4']['address'] }}:2379,https://127.0.0.1:2379 \
+  --advertise-client-urls https://{{ hostvars[item]['ansible_ens10']['ipv4']['address'] }}:2379 \
+  --initial-cluster-token etcd-cluster-0 \
+  --initial-cluster {{ initial_cluster}} \
+  --initial-cluster-state new \
+  --logger=zap \
+  --data-dir=/var/lib/etcd/{{ ansible_hostname }}.etcd
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

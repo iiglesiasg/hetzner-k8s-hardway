@@ -1,0 +1,39 @@
+---
+- name: Generate Certificates locally
+  hosts: localhost
+  gather_facts: false
+  become: false
+  vars_files:
+    - "env/values.yaml"
+  roles:
+    - { role: gen-certs, tags: gen-certs }
+
+
+## Distribute the Server Certificates
+- name: distribute master certificates
+  hosts: master
+  remote_user: root
+  tasks:
+    - copy:
+        src: "{{ playbook_dir }}/pki/certs/{{ item }}"
+        dest: "~/"
+      loop:
+        - ca.pem
+        - ca-key.pem
+        - kubernetes-key.pem
+        - kubernetes.pem
+        - service-account-key.pem
+        - service-account.pem
+
+## Distribute the Client Certificates
+- name: distribute client certificates
+  hosts: worker
+  remote_user: root
+  tasks:
+    - copy:
+        src: "{{ playbook_dir }}/pki/certs/{{ item }}"
+        dest: "~/"
+      loop:
+        - ca.pem
+        - kubelet-{{ ansible_hostname }}.pem
+        - kubelet-{{ ansible_hostname }}-key.pem

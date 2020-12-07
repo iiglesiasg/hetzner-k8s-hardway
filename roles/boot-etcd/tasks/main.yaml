@@ -1,0 +1,109 @@
+## Generating Kubernetes Configuration Files for Authentication
+---
+- name: Gather instance facts
+  setup:
+  delegate_to: "{{ item }}"
+  delegate_facts: True
+  remote_user: root
+  loop: "{{ groups['master'] }}"
+
+- name: "Create directory for etcd binaries"
+  file:
+    path: /opt/etcd/bin
+    state: directory
+    owner: root
+    group: root
+    mode: 0700
+  remote_user: root
+- name: "Download the tarball into the /tmp directory"
+  get_url:
+    url: https://github.com/etcd-io/etcd/releases/download/v3.4.10/etcd-v3.4.10-linux-amd64.tar.gz
+    dest: /tmp/etcd.tar.gz
+    owner: root
+    group: root
+    mode: 0600
+    force: True
+  remote_user: root
+- name: "Extract the contents of the tarball"
+  unarchive:
+    src: /tmp/etcd.tar.gz
+    dest: /opt/etcd/bin/
+    owner: root
+    group: root
+    mode: 0600
+    extra_opts:
+      - --strip-components=1
+    decrypt: True
+    remote_src: True
+  remote_user: root
+- name: "Set permissions for etcd"
+  file:
+    path: /opt/etcd/bin/etcd
+    state: file
+    owner: root
+    group: root
+    mode: 0700
+  remote_user: root
+- name: "Set permissions for etcdctl"
+  file:
+    path: /opt/etcd/bin/etcdctl
+    state: file
+    owner: root
+    group: root
+    mode: 0700
+  remote_user: root
+- name: "Add /opt/etcd/bin/ to the $PATH environment variable"
+  lineinfile:
+    path: /etc/profile
+    line: export PATH="$PATH:/opt/etcd/bin"
+    state: present
+    create: True
+    insertafter: EOF
+  remote_user: root
+- name: "Set the ETCDCTL_API environment variable to 3"
+  lineinfile:
+    path: /etc/profile
+    line: export ETCDCTL_API=3
+    state: present
+    create: True
+    insertafter: EOF
+  remote_user: root
+#- name: "Create a etcd service"
+#  copy:
+#    src: files/etcd.service
+#    remote_src: False
+#    dest: /etc/systemd/system/etcd.service
+#    owner: root
+#    group: root
+#    mode: 0644
+
+- name: Template etcd service
+  template:
+    src: "templates/etcd.service.j2"
+    dest: /etc/systemd/system/etcd.service
+  remote_user: root
+  with_inventory_hostnames:
+    - master
+
+- name: "Create a data directory"
+  file:
+    path: /var/lib/etcd/{{ ansible_hostname }}.etcd
+    state: directory
+    owner: root
+    group: root
+    mode: 0755
+  remote_user: root
+
+
+
+- name: Enable and start systemd etcd service
+  shell: >
+    {
+      sudo cp *.pem /var/lib/etcd/{{ ansible_hostname }}.etcd/
+      sudo systemctl daemon-reload
+      sudo systemctl enable etcd
+      sudo systemctl start etcd
+    }
+  remote_user: root
+  args:
+    executable: "/bin/bash"

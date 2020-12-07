@@ -1,0 +1,120 @@
+## Generating Kubernetes Configuration Files for Authentication
+---
+- name: Gather instance facts
+  setup:
+  delegate_to: "{{ item }}"
+  delegate_facts: True
+  remote_user: root
+  loop: "{{ groups['worker'] }}"
+
+- name: The kubelet Kubernetes Configuration File
+  shell: |
+    kubectl config set-cluster kubernetes-the-hard-way \
+    --certificate-authority=ca.pem \
+    --embed-certs=true \
+    --server=https://{{ KUBERNETES_PUBLIC_ADDRESS }}:6443 \
+    --kubeconfig={{ hostvars[item]['ansible_hostname'] }}.kubeconfig
+  with_inventory_hostnames:
+    - worker
+  args:
+    chdir: "{{ playbook_dir }}/pki/certs/"
+
+- name: The kube-proxy Kubernetes Configuration File
+  shell: |
+    {
+      kubectl config set-cluster kubernetes-the-hard-way \
+        --certificate-authority=ca.pem \
+        --embed-certs=true \
+        --server=https://{{ KUBERNETES_PUBLIC_ADDRESS }}:6443 \
+        --kubeconfig=kube-proxy.kubeconfig
+
+      kubectl config set-credentials system:kube-proxy \
+        --client-certificate=kube-proxy.pem \
+        --client-key=kube-proxy-key.pem \
+        --embed-certs=true \
+        --kubeconfig=kube-proxy.kubeconfig
+
+      kubectl config set-context default \
+        --cluster=kubernetes-the-hard-way \
+        --user=system:kube-proxy \
+        --kubeconfig=kube-proxy.kubeconfig
+
+      kubectl config use-context default --kubeconfig=kube-proxy.kubeconfig
+    }
+  args:
+    chdir: "{{ playbook_dir }}/pki/certs/"
+
+- name: The kube-controller-manager Kubernetes Configuration File
+  shell: |
+    {
+      kubectl config set-cluster kubernetes-the-hard-way \
+        --certificate-authority=ca.pem \
+        --embed-certs=true \
+        --server=https://127.0.0.1:6443 \
+        --kubeconfig=kube-controller-manager.kubeconfig
+
+      kubectl config set-credentials system:kube-controller-manager \
+        --client-certificate=kube-controller-manager.pem \
+        --client-key=kube-controller-manager-key.pem \
+        --embed-certs=true \
+        --kubeconfig=kube-controller-manager.kubeconfig
+
+      kubectl config set-context default \
+        --cluster=kubernetes-the-hard-way \
+        --user=system:kube-controller-manager \
+        --kubeconfig=kube-controller-manager.kubeconfig
+
+      kubectl config use-context default --kubeconfig=kube-controller-manager.kubeconfig
+    }
+  args:
+    chdir: "{{ playbook_dir }}/pki/certs/"
+
+- name: The kube-scheduler Kubernetes Configuration File
+  shell: |
+    {
+      kubectl config set-cluster kubernetes-the-hard-way \
+        --certificate-authority=ca.pem \
+        --embed-certs=true \
+        --server=https://127.0.0.1:6443 \
+        --kubeconfig=kube-scheduler.kubeconfig
+
+      kubectl config set-credentials system:kube-scheduler \
+        --client-certificate=kube-scheduler.pem \
+        --client-key=kube-scheduler-key.pem \
+        --embed-certs=true \
+        --kubeconfig=kube-scheduler.kubeconfig
+
+      kubectl config set-context default \
+        --cluster=kubernetes-the-hard-way \
+        --user=system:kube-scheduler \
+        --kubeconfig=kube-scheduler.kubeconfig
+
+      kubectl config use-context default --kubeconfig=kube-scheduler.kubeconfig
+    }
+  args:
+    chdir: "{{ playbook_dir }}/pki/certs/"
+
+- name: The admin Kubernetes Configuration File
+  shell: |
+    {
+      kubectl config set-cluster kubernetes-the-hard-way \
+        --certificate-authority=ca.pem \
+        --embed-certs=true \
+        --server=https://127.0.0.1:6443 \
+        --kubeconfig=admin.kubeconfig
+
+      kubectl config set-credentials admin \
+        --client-certificate=admin.pem \
+        --client-key=admin-key.pem \
+        --embed-certs=true \
+        --kubeconfig=admin.kubeconfig
+
+      kubectl config set-context default \
+        --cluster=kubernetes-the-hard-way \
+        --user=admin \
+        --kubeconfig=admin.kubeconfig
+
+      kubectl config use-context default --kubeconfig=admin.kubeconfig
+    }
+  args:
+    chdir: "{{ playbook_dir }}/pki/certs/"

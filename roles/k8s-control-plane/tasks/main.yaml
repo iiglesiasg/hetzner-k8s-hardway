@@ -1,0 +1,122 @@
+## Provision the Kubernetes Control Plane
+---
+- name: Gather instance facts
+  setup:
+  delegate_to: "{{ item }}"
+  delegate_facts: True
+  remote_user: root
+  loop: "{{ groups['master'] }}"
+
+- name: Create the Kubernetes configuration directory
+  file:
+    path: /etc/kubernetes/config
+    state: directory
+    owner: root
+    group: root
+    mode: 0700
+  remote_user: root
+
+- name: Download and Install the Kubernetes Controller Binaries
+  shell: >
+    {
+      sudo dnf install wget -y
+
+      wget -q --show-progress --https-only --timestamping \
+        "https://storage.googleapis.com/kubernetes-release/release/v1.19.4/bin/linux/amd64/kube-apiserver" \
+        "https://storage.googleapis.com/kubernetes-release/release/v1.19.4/bin/linux/amd64/kube-controller-manager" \
+        "https://storage.googleapis.com/kubernetes-release/release/v1.19.4/bin/linux/amd64/kube-scheduler" \
+        "https://storage.googleapis.com/kubernetes-release/release/v1.19.4/bin/linux/amd64/kubectl"
+
+      chmod +x kube-apiserver kube-controller-manager kube-scheduler kubectl
+
+      sudo mv kube-apiserver kube-controller-manager kube-scheduler kubectl /usr/local/bin/
+    }
+  remote_user: root
+  args:
+    executable: "/bin/bash"
+
+- name: Create the Kubernetes var/lib directory
+  remote_user: root
+  file:
+    path: /var/lib/kubernetes/
+    state: directory
+
+- name: Move certificates
+  shell: >
+    {
+      sudo cp /home/ningu/encryption-config.yaml /var/lib/kubernetes/
+      sudo cp *.pem /var/lib/kubernetes/
+      sudo cp *.kubeconfig /var/lib/kubernetes/
+    }
+  remote_user: root
+  args:
+    executable: "/bin/bash"
+    chdir: "~/"
+
+- name: Configure the Kubernetes API Server
+  template:
+    src: "templates/kube-apiserver.service.j2"
+    dest: /etc/systemd/system/kube-apiserver.service
+  remote_user: root
+  with_inventory_hostnames:
+    - master
+
+- name: Configure the Kubernetes Controller Manager
+  template:
+    src: "templates/kube-controller-manager.service.j2"
+    dest: /etc/systemd/system/kube-controller-manager.service
+  remote_user: root
+  with_inventory_hostnames:
+    - master
+
+- name: Configure the Kubernetes Scheduler file
+  template:
+    src: "templates/kube-scheduler.yaml.j2"
+    dest: /etc/kubernetes/config/kube-scheduler.yaml
+  remote_user: root
+  with_inventory_hostnames:
+    - master
+
+- name: Configure the Kubernetes Scheduler systemd unit
+  template:
+    src: "templates/kube-scheduler.service.j2"
+    dest: /etc/systemd/system/kube-scheduler.service
+  remote_user: root
+  with_inventory_hostnames:
+    - master
+
+
+- name: Start the Controller Services
+  shell: >
+    {
+      sudo systemctl daemon-reload
+      sudo systemctl enable kube-apiserver kube-controller-manager kube-scheduler
+      sudo systemctl start kube-apiserver kube-controller-manager kube-scheduler
+    }
+  remote_user: root
+  args:
+    executable: "/bin/bash"
+
+- name: Allow up to 10 seconds for the Kubernetes API Server to fully initialize.
+  pause:
+    seconds: 10
+
+- name: Install a basic web server to handle HTTP health checks
+  template:
+    src: "templates/kubernetes.default.svc.cluster.local.j2"
+    dest: /etc/nginx/sites-available/kubernetes.default.svc.cluster.local
+  remote_user: root
+  with_inventory_hostnames:
+    - master
+
+
+- name: Restart Nginx
+  shell: >
+    {
+      sudo ln -s /etc/nginx/sites-available/kubernetes.default.svc.cluster.local /etc/nginx/sites-enabled/
+      sudo systemctl restart nginx
+      sudo systemctl enable nginx
+    }
+  remote_user: root
+  args:
+    executable: "/bin/bash"

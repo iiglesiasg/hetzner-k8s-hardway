@@ -1,0 +1,6 @@
+{
+  "registry.terraform.io/hetznercloud/hcloud": {
+    "hash": "h1:jE1wBARpDjAy/9ORQIooMrbY7Dph4SUrSa6oAFbm1/M=",
+    "version": "1.23.0"
+  }
+}

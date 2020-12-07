@@ -1,0 +1,9 @@
+---
+- name: Provision Kubernetes Control Plane
+  hosts: master
+  gather_facts: false
+  become: false
+  vars_files:
+    - "env/values.yaml"
+  roles:
+    - { role: k8s-control-plane, tags: k8s-control-plane }

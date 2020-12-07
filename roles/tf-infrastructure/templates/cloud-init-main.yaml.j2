@@ -1,0 +1,72 @@
+#cloud-config
+users:
+  - name: ningu
+    groups: users, admin
+    sudo: ALL=(ALL) NOPASSWD:ALL
+    shell: /bin/bash
+    ssh_authorized_keys:
+      - ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAACAQChqOktu5wgPsVy00sgBTdiYxOm2YBgFG5/if1rgTaLRmSnKFdQi/jBLx1J/7+NW/mlVaun8rC2HfZk+o9k6t1wHHd4fayDNYbsE69eJNbzo3K60QfnjnIK6bvkxRKXcXypdi+8Va4MX2V855eGJpW5emvPEmA3Joeiz7tDH+Li75AV1Qq2d33edbXLRfudn5X77bF/Hq30dgJN/y/6d2UCaX0kt5QFP2HHR6uM4K7v3g7iy1A6xBiIRAGVq5t0vvQQVPcaUfoX8EAz2rnSCL3KI9qAKI7FiSQFUyHY8NVQiB3Rk1NMcgILttMLgDhWeBAO99qJuz8oikTtKFEZrSq0q8TE+XxLF39j6t2AZU1W0zf8N3+fqxOnXBzuGaMZ9xB9G38qzVU/jg6CEdP9tRJXXjYb2+Rs9+Z4O9YyJAsDqXpSCllpL2/l4h8KUN+zfWeR3fqTL6pELoh0CXEdNGftLsvsx/SZkrO+d81PlW823ri4ubeNXH/ulnBxzxiZB+h1dObLLxWbavUUTxxIpEY4tO619HsG3dGM78zz3OzNiWuMfZoZvw9nWdY3bO8Y08QpSGvdjGIEqjXBhajv/xfA8wsO+8QW3MGupPDta0R3S3YSKpaqnne+ErXRKvzaCSikkZkPPUKd5eTFGe9d2B1XQd64nXH9hjA5WQUNCCZ7/Q== ningunpenk@hotmail.com
+
+packages:
+  - curl
+  - wget
+  - apt-transport-https
+  - ca-certificates
+  - software-properties-common
+  - python
+  - iptables-persistent
+  - gnupg-agent
+  - nginx
+package_update: true
+package_upgrade: true
+
+write_files:
+- content: |
+    kind: EncryptionConfig
+    apiVersion: v1
+    resources:
+      - resources:
+          - secrets
+        providers:
+          - aescbc:
+              keys:
+                - name: key1
+                  secret: {{ random_sequence.stdout }}
+          - identity: { }
+  path: /home/ningu/encryption-config.yaml
+
+
+runcmd:
+#  - curl -LO "https://storage.googleapis.com/kubernetes-release/release/$(curl -s https://storage.googleapis.com/kubernetes-release/release/stable.txt)/bin/linux/amd64/kubectl"
+#  - chmod +x ./kubectl
+#  - mv ./kubectl /usr/local/bin/kubectl
+  - swapoff -a
+  - export VERSION=1.19
+  - sudo dnf module enable cri-o:$VERSION -y
+  - sudo dnf install cri-o -y
+  - sudo systemctl enable crio
+  - sudo systemctl start crio
+#  - export ENCRYPTION_KEY=$(head -c 32 /dev/urandom | base64)
+#  - wget -q --show-progress --https-only --timestamping "https://github.com/etcd-io/etcd/releases/download/v3.4.10/etcd-v3.4.10-linux-amd64.tar.gz"
+#  - tar -xvf etcd-v3.4.10-linux-amd64.tar.gz
+#  - sudo mv etcd-v3.4.10-linux-amd64/etcd* /usr/local/bin/
+#  - sudo mkdir -p /etc/etcd /var/lib/etcd
+#  - sudo chmod 700 /var/lib/etcd
+#  - INTERNAL_IP=$(hostname -I | awk '{print $2}')
+  - touch /opt/ready.txt
+#  - sed 's/INTERNAL_IP/${INTERNAL_IP}/g' /usr/holu/etcd.service
+#  - cat <<EOF >ready2.txt
+#    "$(hostname -I | awk '{print $2}')-kkkk"
+#    EOF
+#  - sudo cp ./ready2.txt ./opt/ready2.txt
+#  - touch /opt/read4.txt
+#  - sudo su
+#  - touch /opt/ready5.txt
+#  - cat <<EOF >./opt/ready3.txt
+#    "$(hostname -I | awk '{print $2}')-kkkk"
+#    EOF
+#  - cat <<EOF | sudo tee /opt/ready6.txt
+#    "$(hostname -I | awk '{print $2}')-kkkk"
+#    EOF
+  - reboot
+
