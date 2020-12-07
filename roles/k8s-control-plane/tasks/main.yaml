@@ -97,7 +97,7 @@
   args:
     executable: "/bin/bash"
 
-- name: Allow up to 10 seconds for the Kubernetes API Server to fully initialize.
+- name: Allow up to 10 seconds for the Kubernetes API Server to fully initialize
   pause:
     seconds: 10
 
@@ -109,6 +109,13 @@
   with_inventory_hostnames:
     - master
 
+- name: Fedora nginx sites enabled directory configuration
+  template:
+    src: "nginx.conf.j2"
+    dest: /etc/nginx/nginx.conf
+  remote_user: root
+  with_inventory_hostnames:
+    - master
 
 - name: Restart Nginx
   shell: >

@@ -87,19 +87,27 @@
 
 - name: "Create a data directory"
   file:
+    path: /etc/etcd
+    state: directory
+    owner: root
+    group: root
+    mode: 0700
+  remote_user: root
+
+- name: "Create certs directory"
+  file:
     path: /var/lib/etcd/{{ ansible_hostname }}.etcd
     state: directory
     owner: root
     group: root
-    mode: 0755
+    mode: 0700
   remote_user: root
-
 
 
 - name: Enable and start systemd etcd service
   shell: >
     {
-      sudo cp *.pem /var/lib/etcd/{{ ansible_hostname }}.etcd/
+      sudo cp *.pem /etc/etcd/
       sudo systemctl daemon-reload
       sudo systemctl enable etcd
       sudo systemctl start etcd
