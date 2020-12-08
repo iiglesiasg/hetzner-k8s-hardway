@@ -102,6 +102,17 @@
     seconds: 10
 
 - name: Install a basic web server to handle HTTP health checks
+  shell: >
+    {
+      sudo dnf install nginx -y
+      mkdir -p /etc/nginx/sites-available
+      mkdir -p /etc/nginx/sites-enabled
+    }
+  remote_user: root
+  args:
+    executable: "/bin/bash"
+
+- name: Configure Nginx to proxy apiserver
   template:
     src: "templates/kubernetes.default.svc.cluster.local.j2"
     dest: /etc/nginx/sites-available/kubernetes.default.svc.cluster.local
@@ -127,3 +138,33 @@
   remote_user: root
   args:
     executable: "/bin/bash"
+
+## RBAC for Kubelet Authorization
+- name: ClusterRole with permissions to access the Kubelet API
+  template:
+    src: "clusterrole.yaml.j2"
+    dest: /etc/kubernetes/config/clusterrole.yaml
+  remote_user: root
+  run_once: true
+
+- name: Bind the system:kube-apiserver-to-kubelet ClusterRole to the kubernetes user
+  template:
+    src: "clusterrolebinding.yaml.j2"
+    dest: /etc/kubernetes/config/clusterrolebinding.yaml
+  remote_user: root
+  run_once: true
+
+- name: Apply RBAC
+  shell: >
+    {
+      kubectl apply --kubeconfig admin.kubeconfig -f /etc/kubernetes/config/clusterrole.yaml
+      kubectl apply --kubeconfig admin.kubeconfig -f /etc/kubernetes/config/clusterrolebinding.yaml
+    }
+  remote_user: root
+  run_once: true
+  args:
+    executable: "/bin/bash"
+
+## The Kubernetes Frontend Load Balancer
+#- name: Provision a Network Load Balancer
+#  import_tasks: hetzner-lb-tf.yaml

@@ -1,0 +1,14 @@
+---
+- name: Create Load Balancer for API servers.
+  terraform:
+    project_path: "{{ playbook_dir }}/roles/k8s-control-plane/terraform"
+    force_init: true
+    state: present
+    variables:
+      hcloud_token: "{{ hetzner_token }}"
+#      datacenter: "{{ datacenter }}"
+#      master_servertype: "{{ master_servertype }}"
+#      worker_servertype: "{{ worker_servertype }}"
+#      worker_count: "{{ worker_count }}"
+#      floatip_count: "{{ floatip_count }}"
+  register: tf
