@@ -1,0 +1,9 @@
+---
+- name: Provision Kubernetes Worker Nodes
+  hosts: worker
+  gather_facts: false
+  become: false
+  vars_files:
+    - "env/values.yaml"
+  roles:
+    - { role: bootstrap-workers, tags: bootstrap-workers }

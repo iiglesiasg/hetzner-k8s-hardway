@@ -23,15 +23,12 @@ package_update: true
 package_upgrade: true
 
 runcmd:
-  - curl -LO "https://storage.googleapis.com/kubernetes-release/release/$(curl -s https://storage.googleapis.com/kubernetes-release/release/stable.txt)/bin/linux/amd64/kubectl"
-  - chmod +x ./kubectl
-  - mv ./kubectl /usr/local/bin/kubectl
   - swapoff -a
   - export VERSION=1.19
   - sudo dnf module enable cri-o:$VERSION -y
   - sudo dnf install cri-o -y
   - sudo systemctl enable crio
   - sudo systemctl start crio
-  - export INTERNAL_IP=$(hostname -I | awk '{print $2}')
+  - sudo dnf install wget iptables -y
   - touch /opt/ready.txt
   - reboot

@@ -9,11 +9,26 @@
 
 - name: The kubelet Kubernetes Configuration File
   shell: |
-    kubectl config set-cluster kubernetes-the-hard-way \
-    --certificate-authority=ca.pem \
-    --embed-certs=true \
-    --server=https://{{ KUBERNETES_PUBLIC_ADDRESS }}:6443 \
-    --kubeconfig={{ hostvars[item]['ansible_hostname'] }}.kubeconfig
+    {
+      kubectl config set-cluster kubernetes-the-hard-way \
+      --certificate-authority=ca.pem \
+      --embed-certs=true \
+      --server=https://{{ KUBERNETES_PUBLIC_ADDRESS }}:6443 \
+      --kubeconfig={{ hostvars[item]['ansible_hostname'] }}.kubeconfig
+
+      kubectl config set-credentials system:node:{{ hostvars[item]['ansible_hostname'] }} \
+          --client-certificate=kubelet-{{ hostvars[item]['ansible_hostname'] }}.pem \
+          --client-key=kubelet-{{ hostvars[item]['ansible_hostname'] }}-key.pem \
+          --embed-certs=true \
+          --kubeconfig={{ hostvars[item]['ansible_hostname'] }}.kubeconfig
+
+      kubectl config set-context default \
+        --cluster=kubernetes-the-hard-way \
+        --user=system:node:{{ hostvars[item]['ansible_hostname'] }} \
+        --kubeconfig={{ hostvars[item]['ansible_hostname'] }}.kubeconfig
+
+      kubectl config use-context default --kubeconfig={{ hostvars[item]['ansible_hostname'] }}.kubeconfig
+    }
   with_inventory_hostnames:
     - worker
   args:
@@ -115,6 +130,31 @@
         --kubeconfig=admin.kubeconfig
 
       kubectl config use-context default --kubeconfig=admin.kubeconfig
+    }
+  args:
+    chdir: "{{ playbook_dir }}/pki/certs/"
+
+- name: The calico Kubernetes Configuration File
+  shell: |
+    {
+      kubectl config set-cluster kubernetes-the-hard-way \
+        --certificate-authority=ca.pem \
+        --embed-certs=true \
+        --server=https://{{ KUBERNETES_PUBLIC_ADDRESS }}:6443 \
+        --kubeconfig=cni.kubeconfig
+
+      kubectl config set-credentials calico-cni \
+        --client-certificate=cni.pem \
+        --client-key=cni-key.pem \
+        --embed-certs=true \
+        --kubeconfig=cni.kubeconfig
+
+      kubectl config set-context default \
+        --cluster=kubernetes-the-hard-way \
+        --user=calico-cni \
+        --kubeconfig=cni.kubeconfig
+
+      kubectl config use-context default --kubeconfig=cni.kubeconfig
     }
   args:
     chdir: "{{ playbook_dir }}/pki/certs/"

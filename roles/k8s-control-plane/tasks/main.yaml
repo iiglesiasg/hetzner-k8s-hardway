@@ -19,6 +19,7 @@
 - name: Download and Install the Kubernetes Controller Binaries
   shell: >
     {
+
       sudo dnf install wget -y
 
       wget -q --show-progress --https-only --timestamping \
@@ -165,6 +166,38 @@
   args:
     executable: "/bin/bash"
 
+## CALICO
+- name: Calico CRD
+  shell: >
+    {
+      wget https://docs.projectcalico.org/manifests/crds.yaml
+      kubectl apply --kubeconfig admin.kubeconfig -f crds.yaml
+    }
+  remote_user: root
+  run_once: true
+  args:
+    executable: "/bin/bash"
+
+- name: Define a cluster role the CNI plugin will use to access Kubernetes
+  template:
+    src: "cni-clusterrole.yaml.j2"
+    dest: /etc/kubernetes/config/cni-clusterrole.yaml
+  remote_user: root
+  run_once: true
+
+## CALICO
+- name: Apply ClusterRole
+  shell: >
+    {
+      kubectl apply --kubeconfig admin.kubeconfig -f /etc/kubernetes/config/cni-clusterrole.yaml
+      kubectl create --kubeconfig admin.kubeconfig clusterrolebinding calico-cni --clusterrole=calico-cni --user=calico-cni
+    }
+  remote_user: root
+  run_once: true
+  args:
+    executable: "/bin/bash"
+
 ## The Kubernetes Frontend Load Balancer
-#- name: Provision a Network Load Balancer
-#  import_tasks: hetzner-lb-tf.yaml
+- name: Provision a Network Load Balancer
+  delegate_to: 127.0.0.1
+  import_tasks: hetzner-lb-tf.yaml

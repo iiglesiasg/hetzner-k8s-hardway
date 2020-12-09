@@ -2,6 +2,6 @@
 #  name = 'my-net'
 #}
 
-data hcloud_load_balancer "lb"{
-  name = 'cka-lb'
+data hcloud_load_balancer "lb" {
+  name = "cka-lb"
 }

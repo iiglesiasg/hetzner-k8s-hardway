@@ -193,6 +193,26 @@
     executable: "/bin/bash"
     chdir: "{{ playbook_dir }}/pki/certs/"
 
+
+- name: Generate Calico certificate and private key
+  shell: >
+    {
+      openssl req -newkey rsa:4096 \
+                 -keyout cni-key.pem \
+                 -nodes \
+                 -out cni.csr \
+                 -subj "/CN=calico-cni"
+      sudo openssl x509 -req -in cni.csr \
+                        -CA ca.pem \
+                        -CAkey ca-key.pem \
+                        -CAcreateserial \
+                        -out cni.pem \
+                        -days 365
+    }
+  args:
+    executable: "/bin/bash"
+    chdir: "{{ playbook_dir }}/pki/certs/"
+
 ## Distribute the Client and Server Certificates
 #- name: Copy CA files
 #  copy:

@@ -24,6 +24,8 @@
         - kubernetes.pem
         - service-account-key.pem
         - service-account.pem
+        - cni.pem
+        - cni-key.pem
 
 ## Distribute the Client Certificates
 - name: distribute client certificates
@@ -37,3 +39,6 @@
         - ca.pem
         - kubelet-{{ ansible_hostname }}.pem
         - kubelet-{{ ansible_hostname }}-key.pem
+        - cni.pem
+        - cni-key.pem
+

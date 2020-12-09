@@ -1,0 +1,117 @@
+
+---
+- name: Gather instance facts
+  setup:
+  delegate_to: "{{ item }}"
+  delegate_facts: True
+  remote_user: root
+  loop: "{{ groups['worker'] }}"
+
+- name: Download Kubernetes Controller Binaries
+  shell: >
+    {
+      sudo dnf install wget -y
+
+      wget -q --show-progress --https-only --timestamping \
+        https://github.com/kubernetes-sigs/cri-tools/releases/download/v1.19.0/crictl-v1.19.0-linux-amd64.tar.gz \
+        https://github.com/opencontainers/runc/releases/download/v1.0.0-rc92/runc.amd64 \
+        https://github.com/projectcalico/cni-plugin/releases/download/v3.17.0/calico-amd64 \
+        https://github.com/projectcalico/cni-plugin/releases/download/v3.17.0/calico-ipam-amd64 \
+        https://storage.googleapis.com/kubernetes-release/release/v1.19.4/bin/linux/amd64/kubectl \
+        https://storage.googleapis.com/kubernetes-release/release/v1.19.4/bin/linux/amd64/kube-proxy \
+        https://storage.googleapis.com/kubernetes-release/release/v1.19.4/bin/linux/amd64/kubelet
+
+      sudo mkdir -p \
+        /etc/cni/net.d \
+        /opt/cni/bin \
+        /var/lib/kubelet \
+        /var/lib/kube-proxy \
+        /var/lib/kubernetes \
+        /var/run/kubernetes
+
+      
+    }
+  remote_user: root
+  args:
+    executable: "/bin/bash"
+
+
+- name: Install the worker binaries
+  shell: >
+    {
+
+      sudo mv calico-amd64 /opt/cni/bin/calico
+      sudo chmod 755 /opt/cni/bin/calico
+      sudo mv calico-ipam-amd64 /opt/cni/bin/calico-ipam
+      sudo chmod 755 /opt/cni/bin/calico-ipam
+
+      tar -xvf crictl-v1.19.0-linux-amd64.tar.gz
+      sudo mv runc.amd64 runc
+      chmod +x crictl kubectl kube-proxy kubelet runc
+      sudo mv crictl kubectl kube-proxy kubelet runc /usr/local/bin/
+
+    }
+  remote_user: root
+  args:
+    executable: "/bin/bash"
+
+## Configure kubelet
+- name: Distribute certificates
+  shell: >
+    {
+      sudo cp cni.kubeconfig /etc/cni/net.d/calico-kubeconfig
+
+      cp kubelet-{{ ansible_hostname }}-key.pem kubelet-{{ ansible_hostname }}.pem /var/lib/kubelet/
+      sudo cp {{ ansible_hostname }}.kubeconfig /var/lib/kubelet/kubeconfig
+      sudo cp ca.pem /var/lib/kubernetes/
+      sudo cp kube-proxy.kubeconfig /var/lib/kube-proxy/kubeconfig
+
+    }
+  remote_user: root
+  args:
+    executable: "/bin/bash"
+
+## Configure the Kubelet
+- name: Create the kubelet-config.yaml configuration file
+  template:
+    src: "kubelet-config.yaml.j2"
+    dest: /var/lib/kubelet/kubelet-config.yaml
+  remote_user: root
+  with_inventory_hostnames:
+    - worker
+
+- name: Create the kubelet.service systemd unit file
+  template:
+    src: "kubelet.service.j2"
+    dest: /etc/systemd/system/kubelet.service
+  remote_user: root
+  with_inventory_hostnames:
+    - worker
+
+## Configure the Kubernetes Proxy
+- name: Create the kube-proxy-config.yaml configuration file
+  template:
+    src: "kube-proxy-config.yaml.j2"
+    dest: /var/lib/kube-proxy/kube-proxy-config.yaml
+  remote_user: root
+  with_inventory_hostnames:
+    - worker
+
+- name: Create the kube-proxy.service systemd unit file
+  template:
+    src: "kube-proxy.service.j2"
+    dest: /etc/systemd/system/kube-proxy.service
+  remote_user: root
+  with_inventory_hostnames:
+    - worker
+
+- name: Start the Worker Services
+  shell: >
+    {
+      sudo systemctl daemon-reload
+      sudo systemctl enable kubelet kube-proxy
+      sudo systemctl start kubelet kube-proxy
+    }
+  remote_user: root
+  args:
+    executable: "/bin/bash"
